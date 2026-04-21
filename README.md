@@ -23,7 +23,7 @@ Sidri: Removed paper towels from Costco.
 - **Check-off mode** — mark items done, uncheck, or clear all checked at once
 - **Private lists** — create lists only you can see (`create private list wishlist`)
 - **Photo to list** — send a photo of a handwritten list; Sidri reads it and adds all items
-- **Hebrew + English** — responds in whichever language you write in
+- **Any language** — responds in whichever language you write in (Hebrew, English, French, Spanish, and more)
 - **User management via WhatsApp** — `add user +1917... as Dana`, `list users`, `remove user +1917...`
 - **Google Sheets storage** — every list is a tab; edit directly in the browser if you want
 - **No app to install** — works in WhatsApp, nothing to download
