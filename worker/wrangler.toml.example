@@ -1,0 +1,27 @@
+name = "sidri-worker"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# KV namespace: phone number → Anthropic session ID
+# Create with: npx wrangler kv namespace create SESSIONS
+# Then paste the output id below.
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "YOUR_KV_NAMESPACE_ID"
+
+[vars]
+AGENT_ID               = "agent_xxxx"           # from console.anthropic.com → Agents
+ENVIRONMENT_ID         = "env_xxxx"             # from console.anthropic.com → Agents
+TWILIO_WHATSAPP_NUMBER = "whatsapp:+1XXXXXXXXXX" # your Twilio sandbox number
+GOOGLE_SPREADSHEET_ID  = "YOUR_SPREADSHEET_ID"  # from your Google Sheet URL
+# Your WhatsApp number and first name — permanent admin, can't be removed via WhatsApp
+# Format: "+countrycode+number:Name"
+USER_MAP               = "+1XXXXXXXXXX:YourName"
+
+# Secrets — set via: npx wrangler secret put <NAME>
+# ANTHROPIC_API_KEY     — from console.anthropic.com
+# TWILIO_ACCOUNT_SID    — from twilio.com/console
+# TWILIO_AUTH_TOKEN     — from twilio.com/console
+# LISTS_SECRET          — any random string, e.g. "sidri-lists-2026"
+# GOOGLE_CLIENT_EMAIL   — service account email from Google Cloud
+# GOOGLE_PRIVATE_KEY    — full PEM private key from service account JSON

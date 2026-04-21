@@ -104,8 +104,12 @@ wrangler login
 ```bash
 git clone https://github.com/ronenofek/sidri.git
 cd sidri/worker
+cp wrangler.toml.example wrangler.toml
 npx wrangler kv namespace create SESSIONS
 ```
+
+> `wrangler.toml` is gitignored — your real values stay on your machine only.
+> `wrangler.toml.example` is the template you just copied.
 
 The output will look like:
 
