@@ -71,9 +71,30 @@ npm run deploy
 
 ## Open TODOs
 
-- [ ] Reminders — Cloudflare Cron Trigger, reads "reminders" KV key, sends WhatsApp at scheduled times
-- [ ] Completed items — checkbox column in Sheet; "check off eggs" marks done without deleting
-- [ ] Multi-list overview — "show all lists" returns all list names + item counts
+### Quick wins (system prompt only)
+- [x] Emoji on grocery items — auto-add relevant emoji to recognized items
+- [x] "Show all lists" summary — all list names + item counts in one message
+
+### v2 — Check-off mode (Easy, ~1 hour)
+- [ ] Add status column to Sheets; "check off eggs" marks done without deleting
+- [ ] "Clear checked from [list]" text command — removes all checked items
+- [ ] WhatsApp button for "Remove checked" — polish step, after moving to WhatsApp Business API
+
+### v3 — Reminders (Medium, ~3 hours)
+- [ ] Cloudflare Cron Trigger — checks KV every minute, fires WhatsApp messages when due
+- [ ] Store reminders as JSON in KV: {id, text, who, due}
+- [ ] "Remind me Friday at 9am to buy flowers" → stored in KV
+- [ ] "Show my reminders" → lists upcoming reminders
+- [ ] Recurring items — "add milk to grocery every week"
+
+### v4 — Calendar layer (Hard, ~1 day, builds on v3)
+- [ ] Google Calendar integration — Sidri creates real calendar events alongside KV reminders
+- [ ] Shared calendar — both users see events in phone calendar app
+
+### v5 — Polish & scale
+- [ ] User management via WhatsApp — "add +number as Name" without touching wrangler.toml
+- [ ] Shareable read-only link — public URL showing live lists from Sheet
+- [ ] Per-user private lists — some lists shared, some personal
 - [ ] Landing page — public page for the project
 
 ## Related Project
