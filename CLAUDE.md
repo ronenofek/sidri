@@ -111,6 +111,12 @@ npm run deploy
 - [ ] Per-user private lists — some lists shared, some personal
 - [ ] Landing page — public page for the project
 
+### v6 — Open source / sharing (if going Plan A)
+- [ ] Anonymous usage analytics — each deployment phones home once/day (deployment ID + user count + active flag, no personal data). Opt-out via wrangler.toml flag. Signal for when/whether to go SaaS.
+- [ ] Tiny central analytics Worker — collects pings, Ronen queries aggregate stats
+- [ ] Improve SETUP_GUIDE.md for non-technical users — screenshots, time estimates per step, better troubleshooting
+- [ ] SaaS upgrade path (Option B) — if analytics show 15+ deployments / 50+ users, revisit multi-tenant + WhatsApp Business API
+
 ## Related Project
 
 Anabel (personal AI second brain): `C:\Users\ronen\OneDrive\Mine\Anabel- Second Brain Agent\`
