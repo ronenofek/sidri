@@ -668,8 +668,21 @@ async function handleLists(request: Request, env: Env): Promise<Response> {
     );
 
     if (request.method === "GET") {
-      const lists = await readSheets(env.GOOGLE_SPREADSHEET_ID, accessToken);
-      return new Response(JSON.stringify(lists), {
+      // Optional ?caller=Name — filters out other people's private lists.
+      // Private lists are stored with an @Name: prefix (e.g. "@Ronen:wishlist").
+      // Without a caller param, only shared lists (no @ prefix) are returned.
+      const caller = new URL(request.url).searchParams.get("caller") ?? "";
+      const all = await readSheets(env.GOOGLE_SPREADSHEET_ID, accessToken);
+      const filtered: Record<string, ListItem[]> = {};
+      for (const [name, items] of Object.entries(all)) {
+        if (!name.startsWith("@")) {
+          filtered[name] = items;                           // shared — always visible
+        } else if (caller && name.startsWith(`@${caller}:`)) {
+          filtered[name] = items;                           // caller's own private list
+        }
+        // else: another person's private list — omit silently
+      }
+      return new Response(JSON.stringify(filtered), {
         headers: { "Content-Type": "application/json" },
       });
     }
@@ -685,7 +698,20 @@ async function handleLists(request: Request, env: Env): Promise<Response> {
           { status: 400, headers: { "Content-Type": "application/json" } }
         );
       }
-      await writeLists(env.GOOGLE_SPREADSHEET_ID, accessToken, body.lists, body.callerName);
+
+      // Read ALL current lists (unfiltered) so we can preserve lists the caller
+      // can't see. Without this, writing back a filtered payload would delete
+      // other people's private lists.
+      const allCurrent = await readSheets(env.GOOGLE_SPREADSHEET_ID, accessToken);
+      const invisible: Record<string, ListItem[]> = {};
+      for (const [name, items] of Object.entries(allCurrent)) {
+        if (name.startsWith("@") && !name.startsWith(`@${body.callerName}:`)) {
+          invisible[name] = items;
+        }
+      }
+      const merged = { ...body.lists, ...invisible };
+
+      await writeLists(env.GOOGLE_SPREADSHEET_ID, accessToken, merged, body.callerName);
       return new Response("OK", { status: 200 });
     }
 
