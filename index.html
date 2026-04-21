@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sidri — Organize your life, with AI</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:    #25D366;
+      --green-dk: #128C7E;
+      --bg:       #f7f8fa;
+      --card:     #ffffff;
+      --text:     #1a1a2e;
+      --muted:    #6b7280;
+      --border:   #e5e7eb;
+      --radius:   14px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    a { color: var(--green-dk); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Nav ───────────────────────────────────────────────── */
+    nav {
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 60px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      text-decoration: none;
+    }
+    .nav-logo span {
+      font-size: 1.2rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .nav-logo svg { display: block; }
+    .nav-links { display: flex; gap: 1.5rem; font-size: 0.9rem; color: var(--muted); }
+    .nav-links a { color: var(--muted); }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    /* ── Hero ──────────────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, #0f3460 0%, #16213e 60%, #0d7377 100%);
+      color: #fff;
+      text-align: center;
+      padding: 5rem 1.5rem 4rem;
+    }
+    .hero-badge {
+      display: inline-block;
+      background: rgba(37,211,102,0.2);
+      border: 1px solid rgba(37,211,102,0.4);
+      color: #7effa8;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.9rem;
+      border-radius: 99px;
+      margin-bottom: 1.2rem;
+    }
+    .hero h1 {
+      font-size: clamp(2.2rem, 5vw, 3.5rem);
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 1rem;
+    }
+    .hero p {
+      font-size: 1.15rem;
+      color: rgba(255,255,255,0.75);
+      max-width: 520px;
+      margin: 0 auto 2rem;
+    }
+    .hero-slogan {
+      font-size: 1.1rem;
+      color: rgba(255,255,255,0.7);
+      max-width: 480px;
+      margin: 0 auto 1.5rem;
+      line-height: 1.7;
+    }
+    .hero-hebrew {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.4);
+      margin-top: -1rem;
+      margin-bottom: 2rem;
+    }
+    .btn {
+      display: inline-block;
+      padding: 0.75rem 1.75rem;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.88; text-decoration: none; }
+    .btn-primary { background: var(--green); color: #fff; }
+    .btn-secondary {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.25);
+      color: #fff;
+      margin-left: 0.75rem;
+    }
+
+    /* ── Chat demo ─────────────────────────────────────────── */
+    .demo-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 3rem 1.5rem;
+      background: #efeae2; /* WhatsApp chat bg */
+    }
+    .chat-window {
+      background: #efeae2;
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 380px;
+      overflow: hidden;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+    }
+    .chat-header {
+      background: var(--green-dk);
+      color: #fff;
+      padding: 0.8rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .chat-avatar {
+      width: 38px; height: 38px;
+      background: var(--green);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+    }
+    .chat-header-info { font-size: 0.9rem; }
+    .chat-header-info strong { display: block; }
+    .chat-header-info span { font-size: 0.75rem; opacity: 0.8; }
+    .chat-body { padding: 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .bubble {
+      max-width: 85%;
+      padding: 0.5rem 0.75rem;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      line-height: 1.45;
+      position: relative;
+    }
+    .bubble-time {
+      font-size: 0.68rem;
+      color: rgba(0,0,0,0.4);
+      text-align: right;
+      margin-top: 2px;
+    }
+    .bubble-out {
+      background: #dcf8c6;
+      align-self: flex-end;
+      border-bottom-right-radius: 3px;
+    }
+    .bubble-in {
+      background: #fff;
+      align-self: flex-start;
+      border-bottom-left-radius: 3px;
+    }
+
+    /* ── Sections ──────────────────────────────────────────── */
+    section { padding: 4rem 1.5rem; }
+    section:nth-child(even):not(.hero) { background: var(--card); }
+    .section-inner { max-width: 900px; margin: 0 auto; }
+    .section-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--green-dk);
+      margin-bottom: 0.5rem;
+    }
+    h2 {
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      font-weight: 800;
+      margin-bottom: 0.75rem;
+    }
+    .subtitle { color: var(--muted); font-size: 1.05rem; margin-bottom: 2.5rem; }
+
+    /* ── Features grid ─────────────────────────────────────── */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1.25rem;
+    }
+    .feature-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.4rem;
+    }
+    .feature-icon { font-size: 1.6rem; margin-bottom: 0.6rem; }
+    .feature-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.35rem; }
+    .feature-card p { font-size: 0.88rem; color: var(--muted); }
+
+    /* ── How it works ──────────────────────────────────────── */
+    .arch-diagram {
+      background: #1e293b;
+      color: #e2e8f0;
+      border-radius: var(--radius);
+      padding: 1.5rem 2rem;
+      font-family: "Courier New", monospace;
+      font-size: 0.85rem;
+      margin-bottom: 2rem;
+      overflow-x: auto;
+      line-height: 2;
+    }
+    .arch-diagram .hl { color: var(--green); font-weight: bold; }
+
+    /* ── Setup ─────────────────────────────────────────────── */
+    .setup-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2.5rem;
+    }
+    .setup-card {
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      background: var(--card);
+      position: relative;
+    }
+    .setup-card.recommended { border-color: var(--green); }
+    .recommended-badge {
+      position: absolute;
+      top: -12px; left: 1rem;
+      background: var(--green);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.7rem;
+      border-radius: 99px;
+    }
+    .setup-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .setup-card p { font-size: 0.88rem; color: var(--muted); margin-bottom: 1rem; }
+    .setup-steps { list-style: none; padding: 0; counter-reset: step; }
+    .setup-steps li {
+      counter-increment: step;
+      position: relative;
+      padding-left: 28px;
+      font-size: 0.85rem;
+      margin-bottom: 0.6rem;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .setup-steps li::before {
+      content: counter(step);
+      background: var(--green-dk);
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      position: absolute;
+      left: 0; top: 1px;
+    }
+    code {
+      background: #f1f5f9;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.1em 0.4em;
+      font-size: 0.85em;
+      font-family: "Courier New", monospace;
+    }
+
+    .prereqs {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      font-size: 0.88rem;
+    }
+    .prereqs h4 { font-weight: 700; margin-bottom: 0.75rem; }
+    .prereqs ul { list-style: none; display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+    .prereqs li::before { content: "✓ "; color: var(--green); font-weight: 700; }
+
+    /* ── Footer ────────────────────────────────────────────── */
+    footer {
+      background: #1e293b;
+      color: rgba(255,255,255,0.5);
+      text-align: center;
+      padding: 2rem 1rem;
+      font-size: 0.85rem;
+    }
+    footer a { color: rgba(255,255,255,0.7); }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-logo">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="logoGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#25D366"/>
+          <stop offset="100%" stop-color="#0d7377"/>
+        </linearGradient>
+      </defs>
+      <rect width="32" height="32" rx="9" fill="url(#logoGrad)"/>
+      <!-- check mark -->
+      <polyline points="6,16 10,20 16,12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <!-- list lines -->
+      <rect x="19" y="11" width="8" height="2.5" rx="1.25" fill="white" opacity="0.85"/>
+      <rect x="19" y="15.5" width="6" height="2.5" rx="1.25" fill="white" opacity="0.6"/>
+      <rect x="19" y="20" width="7" height="2.5" rx="1.25" fill="white" opacity="0.4"/>
+    </svg>
+    <span>Sidri</span>
+  </div>
+  <div class="nav-links">
+    <a href="#features">Features</a>
+    <a href="#how-it-works">How it works</a>
+    <a href="#setup">Setup</a>
+    <a href="https://github.com/ronenofek/sidri" target="_blank">GitHub</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="hero-badge">Open Source · Self-Hosted</div>
+  <h1>Organize your life,<br>with AI.</h1>
+  <p class="hero-slogan">Sidri manages your household lists inside WhatsApp.<br>Add, check off, and share just by chatting.</p>
+  <div class="hero-hebrew">סדרי · "my organizer" in Hebrew &nbsp;·&nbsp; works in any language</div>
+  <a href="#setup" class="btn btn-primary">Get started</a>
+  <a href="https://github.com/ronenofek/sidri" target="_blank" class="btn btn-secondary">View on GitHub</a>
+</section>
+
+<!-- Chat demo -->
+<div class="demo-wrap">
+  <div class="chat-window">
+    <div class="chat-header">
+      <div class="chat-avatar">🗒️</div>
+      <div class="chat-header-info">
+        <strong>Sidri</strong>
+        <span>online</span>
+      </div>
+    </div>
+    <div class="chat-body">
+      <div class="bubble bubble-out">add milk and eggs to grocery<div class="bubble-time">9:14</div></div>
+      <div class="bubble bubble-in">Added 🥛 milk and 🥚 eggs to grocery.<div class="bubble-time">9:14</div></div>
+      <div class="bubble bubble-out">show grocery<div class="bubble-time">9:15</div></div>
+      <div class="bubble bubble-in">
+        🛒 <strong>grocery</strong><br>
+        🥛 milk<br>
+        🥚 eggs<br>
+        🧴 shampoo
+        <div class="bubble-time">9:15</div>
+      </div>
+      <div class="bubble bubble-out">הוסף לחם למכולת<div class="bubble-time">9:16</div></div>
+      <div class="bubble bubble-in">נוסף 🍞 לחם לרשימת המכולת.<div class="bubble-time">9:16</div></div>
+      <div class="bubble bubble-out">check off eggs<div class="bubble-time">9:20</div></div>
+      <div class="bubble bubble-in">✅ eggs checked off.<div class="bubble-time">9:20</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Features -->
+<section id="features">
+  <div class="section-inner">
+    <div class="section-label">Features</div>
+    <h2>Everything your household needs</h2>
+    <p class="subtitle">No app to install. No account to create. Just chat.</p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🛒</div>
+        <h3>Shared lists</h3>
+        <p>Create any list: grocery, Costco, pharmacy, books. Everyone in the group can add, remove, and view.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3>Private lists</h3>
+        <p>Create personal lists only you can see. Great for wish lists, gift ideas, or anything just for you.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📷</div>
+        <h3>Photo to list</h3>
+        <p>Snap a photo of a handwritten list. Sidri reads it (including Hebrew handwriting) and adds every item automatically.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">👨‍👩‍👧</div>
+        <h3>Simple user management</h3>
+        <p>Add or remove family members right from WhatsApp. No code changes, no config files.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌍</div>
+        <h3>Any language</h3>
+        <p>Write in Hebrew, English, French, Spanish or any language. Sidri always replies in kind.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">✅</div>
+        <h3>Check-off mode</h3>
+        <p>Mark items done as you shop. Uncheck them, or clear all checked items at once when you're done.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How it works -->
+<section id="how-it-works">
+  <div class="section-inner">
+    <div class="section-label">Architecture</div>
+    <h2>How it works</h2>
+    <p class="subtitle">Four services wired together, all free or very low cost.</p>
+    <div class="arch-diagram">
+      <span class="hl">WhatsApp</span> → <span class="hl">Twilio</span> → <span class="hl">Cloudflare Worker</span> → <span class="hl">Anthropic Agent</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↓↑<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="hl">Google Sheets API</span>
+    </div>
+    <div class="features-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr))">
+      <div class="feature-card">
+        <div class="feature-icon">📱</div>
+        <h3>Twilio</h3>
+        <p>Bridges WhatsApp to your worker via webhook. Free sandbox for up to 50 messages/day.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Cloudflare Workers</h3>
+        <p>Serverless edge runtime. Handles auth, routing, session management, and Google Sheets read/write.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🤖</div>
+        <h3>Anthropic Managed Agent</h3>
+        <p>The AI brain. Understands your messages, decides what to do, and calls the lists API.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Google Sheets</h3>
+        <p>Persistent storage. One tab per list. Readable and editable by anyone you share it with.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Setup -->
+<section id="setup">
+  <div class="section-inner">
+    <div class="section-label">Setup</div>
+    <h2>You're one setup away.</h2>
+    <p class="subtitle">Claude walks you through every step. Just follow along.</p>
+
+    <div class="setup-options">
+
+      <div class="setup-card recommended">
+        <div class="recommended-badge">⚡ Fastest</div>
+        <h3>Claude Code <code>/setup</code></h3>
+        <p>Claude Code runs all terminal commands for you. You just paste values from the browser when asked.</p>
+        <ol class="setup-steps">
+          <li>Install <a href="https://claude.ai/code" target="_blank">Claude Code</a></li>
+          <li><a href="https://github.com/ronenofek/sidri" target="_blank">Clone the repo</a> and open the folder</li>
+          <li>Type <code>/setup</code> — Claude does the rest</li>
+        </ol>
+      </div>
+
+      <div class="setup-card">
+        <h3>Claude.ai guided wizard</h3>
+        <p>Don't have Claude Code? Paste the setup prompt into any Claude chat and follow along.</p>
+        <ol class="setup-steps">
+          <li><a href="https://github.com/ronenofek/sidri" target="_blank">Clone the repo</a></li>
+          <li>Open <a href="https://claude.ai" target="_blank">claude.ai</a></li>
+          <li>Paste the contents of <code>SETUP_PROMPT.md</code> into the chat</li>
+        </ol>
+      </div>
+
+      <div class="setup-card">
+        <h3>Manual setup</h3>
+        <p>Prefer full control? Follow the step-by-step guide yourself.</p>
+        <ol class="setup-steps">
+          <li>Clone the repo</li>
+          <li>Read <a href="https://github.com/ronenofek/sidri/blob/main/SETUP_GUIDE.md" target="_blank">SETUP_GUIDE.md</a></li>
+          <li>Follow the steps</li>
+        </ol>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <p>Sidri is open source · <a href="https://github.com/ronenofek/sidri" target="_blank">github.com/ronenofek/sidri</a> · MIT License</p>
+</footer>
+
+</body>
+</html>
