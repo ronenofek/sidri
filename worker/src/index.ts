@@ -54,21 +54,121 @@ function anthropicHeaders(apiKey: string): Record<string, string> {
 }
 
 // ── User identity ─────────────────────────────────────────────────────────────
-// USER_MAP format: "+19173024263:Ronen,+19171234567:Dana"
+// Two-layer user store:
+//   1. wrangler.toml USER_MAP  — bootstrap/admin users, always present, never removable
+//   2. KV key "__usermap__"    — dynamic users added via WhatsApp
+//
 // Twilio sends phone as "whatsapp:+19173024263" — strip prefix before lookup.
 
-function getUserName(phone: string, userMap: string): string {
-  const barePhone = phone.replace("whatsapp:", "");
-  if (userMap) {
-    for (const entry of userMap.split(",")) {
-      const colonIdx = entry.indexOf(":");
-      if (colonIdx === -1) continue;
-      const num = entry.slice(0, colonIdx).trim();
-      const name = entry.slice(colonIdx + 1).trim();
-      if (num === barePhone && name) return name;
+const USERMAP_KEY = "__usermap__";
+
+/** Parse the wrangler.toml USER_MAP env var into a phone→name map. */
+function parseEnvUserMap(userMap: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  if (!userMap) return result;
+  for (const entry of userMap.split(",")) {
+    const colonIdx = entry.indexOf(":");
+    if (colonIdx === -1) continue;
+    const num = entry.slice(0, colonIdx).trim();
+    const name = entry.slice(colonIdx + 1).trim();
+    if (num && name) result[num] = name;
+  }
+  return result;
+}
+
+/** Read merged user map: env-var base + KV dynamic users. */
+async function getUserMap(env: Env): Promise<Record<string, string>> {
+  const base = parseEnvUserMap(env.USER_MAP);
+  const raw = await env.SESSIONS.get(USERMAP_KEY);
+  if (raw) {
+    try {
+      const kvMap = JSON.parse(raw) as Record<string, string>;
+      // KV entries augment the base; env-var users always present
+      return { ...kvMap, ...base };
+    } catch {
+      // ignore corrupt KV data
     }
   }
-  return `Unknown (${barePhone})`;
+  return base;
+}
+
+/** Persist dynamic (non-env-var) users back to KV. */
+async function saveUserMap(env: Env, map: Record<string, string>): Promise<void> {
+  const base = parseEnvUserMap(env.USER_MAP);
+  // Only store entries that aren't already covered by the env-var map
+  const toSave: Record<string, string> = {};
+  for (const [phone, name] of Object.entries(map)) {
+    if (!(phone in base)) toSave[phone] = name;
+  }
+  await env.SESSIONS.put(USERMAP_KEY, JSON.stringify(toSave));
+}
+
+/** Look up a display name for an incoming Twilio phone string. */
+async function getUserName(phone: string, env: Env): Promise<string> {
+  const barePhone = phone.replace("whatsapp:", "");
+  const map = await getUserMap(env);
+  return map[barePhone] ?? `Unknown (${barePhone})`;
+}
+
+// ── User management commands ──────────────────────────────────────────────────
+// Handled at Worker level — fast, no agent round-trip.
+// Only recognised users can run these commands.
+//
+// Commands:
+//   add user +19171234567 as Dana   (English)
+//   הוסף משתמש +972... בתור דנה    (Hebrew)
+//   remove user +19171234567
+//   הסר משתמש +972...
+//   list users / משתמשים
+
+async function handleUserCommand(
+  from: string,
+  body: string,
+  env: Env
+): Promise<string | null> {
+  const barePhone = from.replace("whatsapp:", "");
+  const map = await getUserMap(env);
+
+  // Only existing known users may manage users
+  if (!(barePhone in map)) return null;
+
+  const trimmed = body.trim();
+  const lower = trimmed.toLowerCase();
+
+  // list users
+  if (lower === "list users" || lower === "רשימת משתמשים" || lower === "משתמשים") {
+    const lines = Object.entries(map).map(([p, n]) => `${n} (${p})`);
+    return lines.length ? lines.join("\n") : "No users registered.";
+  }
+
+  // add user +X as Name  /  הוסף משתמש +X בתור Name
+  const addMatch =
+    trimmed.match(/^add user\s+(\+[\d]+)\s+as\s+(.+)$/i) ??
+    trimmed.match(/^הוסף משתמש\s+(\+[\d]+)\s+בתור\s+(.+)$/i);
+  if (addMatch) {
+    const phone = addMatch[1].trim();
+    const name = addMatch[2].trim();
+    map[phone] = name;
+    await saveUserMap(env, map);
+    return `✓ Added ${name} (${phone})`;
+  }
+
+  // remove user +X  /  הסר משתמש +X
+  const removeMatch =
+    trimmed.match(/^remove user\s+(\+[\d]+)$/i) ??
+    trimmed.match(/^הסר משתמש\s+(\+[\d]+)$/i);
+  if (removeMatch) {
+    const phone = removeMatch[1].trim();
+    const base = parseEnvUserMap(env.USER_MAP);
+    if (phone in base) return `Can't remove ${base[phone]} — they're a permanent admin.`;
+    const name = map[phone];
+    if (!name) return `${phone} is not in the user list.`;
+    delete map[phone];
+    await saveUserMap(env, map);
+    return `✓ Removed ${name} (${phone})`;
+  }
+
+  return null; // not a user management command
 }
 
 // ── Anthropic session management ──────────────────────────────────────────────
@@ -257,7 +357,7 @@ async function handleWhatsApp(
   image?: { base64: string; mediaType: string }
 ): Promise<void> {
   // Inject caller name so the agent knows who is writing
-  const callerName = getUserName(from, env.USER_MAP);
+  const callerName = await getUserName(from, env);
   const taggedMessage = `[From ${callerName}]: ${body}`;
 
   try {
@@ -627,6 +727,15 @@ export default {
       // Return 200 to Twilio immediately; process in background
       ctx.waitUntil(
         (async () => {
+          // User management commands are handled locally — no agent round-trip
+          if (body) {
+            const userReply = await handleUserCommand(from, body, env);
+            if (userReply !== null) {
+              await sendWhatsApp(from, userReply, env);
+              return;
+            }
+          }
+
           let image: { base64: string; mediaType: string } | undefined;
           if (numMedia > 0 && mediaUrl) {
             try {
