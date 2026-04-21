@@ -36,14 +36,19 @@ The Cloudflare Worker bridges Twilio and Anthropic's Managed Agents API. Lists a
 
 ## Setup
 
-See [SETUP_GUIDE.md](./SETUP_GUIDE.md) for full step-by-step instructions.
+**Fastest way:** Clone the repo, open it in [Claude Code](https://claude.ai/code), and type `/setup`.
+Claude Code will run all terminal commands automatically and guide you through the browser steps.
+
+**Using Claude.ai instead?** Open [SETUP_PROMPT.md](./SETUP_PROMPT.md), paste its contents into any Claude chat, and follow the guided wizard.
+
+**Manual setup:** See [SETUP_GUIDE.md](./SETUP_GUIDE.md) for full step-by-step instructions.
 
 Quick overview:
 1. Create a Google Service Account + Sheets spreadsheet
 2. Create an Anthropic Managed Agent in Claude Console
 3. Configure a Twilio WhatsApp sandbox
-4. Create a Cloudflare KV namespace
-5. Set Wrangler secrets
+4. Log in to Cloudflare (`wrangler login`) and create a KV namespace
+5. Fill in `worker/wrangler.toml` and set Wrangler secrets
 6. `npm run deploy` from `worker/`
 
 ## License
