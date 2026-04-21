@@ -8,6 +8,10 @@
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+// List item with optional check-off status
+// { i: "eggs", d: false } = active   { i: "eggs", d: true } = checked off
+export type ListItem = { i: string; d: boolean };
+
 export interface Env {
   SESSIONS: KVNamespace;             // phone → session_id
   ANTHROPIC_API_KEY: string;
@@ -113,14 +117,23 @@ type AgentEvent = {
 async function getAgentResponse(
   sessionId: string,
   message: string,
-  env: Env
+  env: Env,
+  image?: { base64: string; mediaType: string }
 ): Promise<string> {
+  // Build content array: optional image block + text block
+  const content: unknown[] = [
+    ...(image
+      ? [{ type: "image", source: { type: "base64", media_type: image.mediaType, data: image.base64 } }]
+      : []),
+    { type: "text", text: message },
+  ];
+
   // 1. Send the user message
   const sendRes = await fetch(`${ANTHROPIC_BASE}/sessions/${sessionId}/events`, {
     method: "POST",
     headers: anthropicHeaders(env.ANTHROPIC_API_KEY),
     body: JSON.stringify({
-      events: [{ type: "user.message", content: [{ type: "text", text: message }] }],
+      events: [{ type: "user.message", content }],
     }),
   });
 
@@ -188,6 +201,27 @@ async function getAgentResponse(
   return parts.join("\n\n") || "Sorry, timed out waiting for a response.";
 }
 
+// ── Twilio media download ─────────────────────────────────────────────────────
+// Twilio-hosted media requires Basic auth (Account SID + Auth Token).
+// Returns base64-encoded image data + MIME type.
+
+async function downloadTwilioMedia(
+  mediaUrl: string,
+  env: Env
+): Promise<{ base64: string; mediaType: string }> {
+  const auth = btoa(`${env.TWILIO_ACCOUNT_SID}:${env.TWILIO_AUTH_TOKEN}`);
+  const res = await fetch(mediaUrl, {
+    headers: { Authorization: `Basic ${auth}` },
+  });
+  if (!res.ok) throw new Error(`Media download failed: ${res.status}`);
+  const mediaType = res.headers.get("Content-Type") ?? "image/jpeg";
+  const buffer = await res.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return { base64: btoa(binary), mediaType };
+}
+
 // ── Twilio outbound ───────────────────────────────────────────────────────────
 
 async function sendWhatsApp(to: string, body: string, env: Env): Promise<void> {
@@ -216,7 +250,12 @@ async function sendWhatsApp(to: string, body: string, env: Env): Promise<void> {
 
 // ── Message handler ───────────────────────────────────────────────────────────
 
-async function handleWhatsApp(from: string, body: string, env: Env): Promise<void> {
+async function handleWhatsApp(
+  from: string,
+  body: string,
+  env: Env,
+  image?: { base64: string; mediaType: string }
+): Promise<void> {
   // Inject caller name so the agent knows who is writing
   const callerName = getUserName(from, env.USER_MAP);
   const taggedMessage = `[From ${callerName}]: ${body}`;
@@ -226,12 +265,12 @@ async function handleWhatsApp(from: string, body: string, env: Env): Promise<voi
     let reply: string;
 
     try {
-      reply = await getAgentResponse(sessionId, taggedMessage, env);
+      reply = await getAgentResponse(sessionId, taggedMessage, env, image);
     } catch (err) {
       // Session likely expired — recreate and retry once
       console.error(`Session error for ${from}, resetting...`, err);
       sessionId = await resetSession(from, env);
-      reply = await getAgentResponse(sessionId, taggedMessage, env);
+      reply = await getAgentResponse(sessionId, taggedMessage, env, image);
     }
 
     await sendWhatsApp(from, reply, env);
@@ -340,9 +379,9 @@ async function getGoogleAccessToken(
 
 // ── Google Sheets: data layer ─────────────────────────────────────────────────
 
-// A1 range for full sheet (columns A–C). Titles with spaces must be quoted.
+// A1 range for full sheet (columns A–D). Titles with spaces must be quoted.
 function sheetRange(title: string): string {
-  return `'${title.replace(/'/g, "''")}'!A:C`;
+  return `'${title.replace(/'/g, "''")}'!A:D`;
 }
 
 interface SheetMeta {
@@ -358,11 +397,12 @@ interface SpreadsheetResponse {
   sheets?: SheetMeta[];
 }
 
-// Read all lists: returns { listName: ["item1", "item2", ...] }
+// Read all lists: returns { listName: [{i: "milk", d: false}, ...] }
+// d=false = active, d=true = checked off (col D = "done")
 async function readSheets(
   spreadsheetId: string,
   accessToken: string
-): Promise<Record<string, string[]>> {
+): Promise<Record<string, ListItem[]>> {
   const res = await fetch(`${SHEETS_BASE}/${spreadsheetId}?includeGridData=true`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -371,17 +411,18 @@ async function readSheets(
   }
 
   const data = (await res.json()) as SpreadsheetResponse;
-  const result: Record<string, string[]> = {};
+  const result: Record<string, ListItem[]> = {};
 
   for (const sheet of data.sheets ?? []) {
     const name = sheet.properties.title;
     const rows = sheet.data?.[0]?.rowData ?? [];
-    const items: string[] = [];
+    const items: ListItem[] = [];
 
-    // Row 0 is the header ["Item","AddedBy","Timestamp"] — skip it
+    // Row 0 is the header ["Item","AddedBy","Timestamp","Status"] — skip it
     for (let r = 1; r < rows.length; r++) {
       const cellA = rows[r].values?.[0]?.formattedValue ?? "";
-      if (cellA.trim()) items.push(cellA.trim());
+      const cellD = rows[r].values?.[3]?.formattedValue ?? "";
+      if (cellA.trim()) items.push({ i: cellA.trim(), d: cellD.trim() === "done" });
     }
 
     result[name] = items;
@@ -428,7 +469,7 @@ async function readSheetRawRows(
 async function writeLists(
   spreadsheetId: string,
   accessToken: string,
-  newLists: Record<string, string[]>,
+  newLists: Record<string, ListItem[]>,
   callerName: string
 ): Promise<void> {
   const authHeader = { Authorization: `Bearer ${accessToken}` };
@@ -463,7 +504,7 @@ async function writeLists(
 
   // Write data for each list
   const now = new Date().toISOString();
-  const HEADER = ["Item", "AddedBy", "Timestamp"];
+  const HEADER = ["Item", "AddedBy", "Timestamp", "Status"];
 
   for (const [listName, newItems] of Object.entries(newLists)) {
     // Read existing rows to preserve AddedBy + Timestamp for items that haven't changed
@@ -475,13 +516,15 @@ async function writeLists(
     }
 
     const dataRows: string[][] = [HEADER];
-    for (const item of newItems) {
-      if (existingRowMap[item]) {
-        // Preserve original AddedBy + Timestamp
-        dataRows.push([item, existingRowMap[item][1] ?? callerName, existingRowMap[item][2] ?? now]);
+    for (const listItem of newItems) {
+      const { i: itemName, d: isDone } = listItem;
+      const status = isDone ? "done" : "";
+      if (existingRowMap[itemName]) {
+        // Preserve original AddedBy + Timestamp, update Status
+        dataRows.push([itemName, existingRowMap[itemName][1] ?? callerName, existingRowMap[itemName][2] ?? now, status]);
       } else {
         // New item — stamp with caller and current time
-        dataRows.push([item, callerName, now]);
+        dataRows.push([itemName, callerName, now, status]);
       }
     }
 
@@ -510,7 +553,7 @@ async function writeLists(
 }
 
 // ── Lists HTTP handler ────────────────────────────────────────────────────────
-// GET  /lists  → { "grocery": ["milk", "eggs"], ... }
+// GET  /lists  → { "grocery": [{i:"milk",d:false}, {i:"eggs",d:true}], ... }
 // PATCH /lists → body: { lists: {...}, callerName: "Ronen" }
 
 async function handleLists(request: Request, env: Env): Promise<Response> {
@@ -533,7 +576,7 @@ async function handleLists(request: Request, env: Env): Promise<Response> {
 
     if (request.method === "PATCH") {
       const body = (await request.json()) as {
-        lists: Record<string, string[]>;
+        lists: Record<string, ListItem[]>;
         callerName: string;
       };
       if (!body.lists || typeof body.callerName !== "string") {
@@ -576,10 +619,27 @@ export default {
     const from = form.get("From") as string | null;
     const rawBody = form.get("Body") as string | null;
     const body = rawBody?.trim() ?? "";
+    const numMedia = parseInt((form.get("NumMedia") as string | null) ?? "0", 10);
+    const mediaUrl = form.get("MediaUrl0") as string | null;
+    const mediaContentType = form.get("MediaContentType0") as string | null;
 
-    if (from && body) {
+    if (from && (body || numMedia > 0)) {
       // Return 200 to Twilio immediately; process in background
-      ctx.waitUntil(handleWhatsApp(from, body, env));
+      ctx.waitUntil(
+        (async () => {
+          let image: { base64: string; mediaType: string } | undefined;
+          if (numMedia > 0 && mediaUrl) {
+            try {
+              image = await downloadTwilioMedia(mediaUrl, env);
+              // Use the content type from form data if available (more reliable)
+              if (mediaContentType) image.mediaType = mediaContentType;
+            } catch (err) {
+              console.error("Media download failed:", err);
+            }
+          }
+          await handleWhatsApp(from, body, env, image);
+        })()
+      );
     }
 
     return new Response(
