@@ -184,9 +184,12 @@ Write this down — you need it for the next step.
 
 ### Wire up Twilio
 
-1. Go back to your Twilio sandbox settings
-2. Set **"When a message comes in"** to your Worker URL
-3. Save
+1. Go back to your Twilio sandbox settings (**Messaging → Try it out → Send a WhatsApp message**)
+2. Under **"When a message comes in"**, paste your Worker URL exactly as printed by wrangler:
+   `https://sidri-worker.YOUR-SUBDOMAIN.workers.dev`
+   (no path, no trailing slash — just the root URL)
+3. Make sure the method is set to **HTTP POST**
+4. Click **Save**
 
 ### Set the system prompt in Claude Console
 
