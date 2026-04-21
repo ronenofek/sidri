@@ -183,15 +183,12 @@ Your Worker URL will be printed — something like:
 
 ```bash
 # Should return {}
-curl -H "X-Lists-Token: YOUR_LISTS_SECRET" \
-  https://sidri-worker.YOUR-SUBDOMAIN.workers.dev/lists
+curl.exe -H "X-Lists-Token: YOUR_LISTS_SECRET" https://sidri-worker.YOUR-SUBDOMAIN.workers.dev/lists
 
 # Should create a "grocery" tab in your Sheet with milk and eggs
-curl -X PATCH \
-  -H "X-Lists-Token: YOUR_LISTS_SECRET" \
-  -H "Content-Type: application/json" \
-  -d '{"lists":{"grocery":["milk","eggs"]},"callerName":"Test"}' \
-  https://sidri-worker.YOUR-SUBDOMAIN.workers.dev/lists
+# Note: on Windows PowerShell, use Invoke-WebRequest instead of curl
+$body = '{"lists":{"grocery":["milk","eggs"]},"callerName":"Test"}'
+Invoke-WebRequest -UseBasicParsing -Method PATCH -Uri "https://sidri-worker.YOUR-SUBDOMAIN.workers.dev/lists" -Headers @{"X-Lists-Token"="YOUR_LISTS_SECRET"} -ContentType "application/json" -Body $body
 ```
 
 Open your Google Sheet — you should see a "grocery" tab with the header row and two items.
