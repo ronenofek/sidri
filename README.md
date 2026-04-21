@@ -43,13 +43,14 @@ Claude Code will run all terminal commands automatically and guide you through t
 
 **Manual setup:** See [SETUP_GUIDE.md](./SETUP_GUIDE.md) for full step-by-step instructions.
 
-Quick overview:
-1. Create a Google Service Account + Sheets spreadsheet
-2. Create an Anthropic Managed Agent in Claude Console
-3. Configure a Twilio WhatsApp sandbox
-4. Log in to Cloudflare (`wrangler login`) and create a KV namespace
-5. Fill in `worker/wrangler.toml` and set Wrangler secrets
-6. `npm run deploy` from `worker/`
+What the wizard automates (you just paste values when asked):
+- `wrangler login`, KV namespace creation, filling `wrangler.toml`, all 6 secrets, deploy, verification
+
+What requires a browser (~20 min total):
+1. **Google Cloud** — create service account, enable Sheets API, create spreadsheet (~10 min)
+2. **Anthropic Console** — create a blank Managed Agent, copy Agent ID + Environment ID (~2 min)
+3. **Twilio** — join the WhatsApp sandbox from your phone, copy SID + token (~5 min)
+4. **Post-deploy** — set Twilio webhook URL, paste system prompt into the agent (~3 min)
 
 ## License
 
